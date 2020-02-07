@@ -4,8 +4,6 @@ import numpy as np
 import sys
 from collections import defaultdict
 import matplotlib.pyplot as plt
-
-
 from collections import deque
 
 class epsilon(object):
@@ -16,7 +14,7 @@ class epsilon(object):
         self.eps_min = eps_min
         
     def update(self):
-        self.eps = max(self.eps_start*self.eps_decay, self.eps_min)
+        self.eps = max(self.eps*self.eps_decay, self.eps_min)
         
     def get(self):
         return self.eps
@@ -27,7 +25,7 @@ class policy(object):
     def get_action(self, Q_state):
         pass
     
-    def update(self):
+    def update(self, episode_counter):
         pass
     
 class random(policy):
@@ -39,9 +37,11 @@ class maximum(policy):
         return np.argmax(Q_state)
     
 class epsilon_greedy(policy):
-    def __init__(self, epsilon):
+    def __init__(self, epsilon, schedule):
         self.epsilon = epsilon
+        self.schedule = schedule
         
+
     def get_action(self,Q_state):
         eps = self.epsilon.get()
         rv = np.random.uniform(0,1)
@@ -50,12 +50,18 @@ class epsilon_greedy(policy):
         else:
             return np.random.choice(np.arange(len(Q_state)))
     
-    def update(self):
-        self.epsilon.update()
+    
+    def update(self, episode_counter):
+        if episode_counter%self.schedule==0:
+            self.epsilon.update()
+        else:
+            pass
         
         
-def play(env, Q, n_episodes, policy):
+def play(env, Q, n_episodes, policy, window = 100):
     scores = []
+    moving_scores = deque(maxlen = window)
+    moving_average_scores = []
     for i_epsiodes in range(0,n_episodes):
         done = False
         next_state = env.reset()
@@ -65,7 +71,9 @@ def play(env, Q, n_episodes, policy):
             next_state, reward, done, _ = env.step(next_action)
             score+=reward
         scores.append(score)
-    return np.mean(scores), scores
+        moving_scores.append(score)
+        moving_average_scores.append(np.mean(moving_scores))
+    return np.mean(scores), scores, moving_average_scores
 
 def generate_episode(env, policy, Q):
     episode = []
@@ -127,7 +135,7 @@ def MC(env, policy, Q_class ,num_episodes, generate_episode, stopping = None):
         episode = generate_episode(env, policy, Q_class.Q)
         score = Q_class.update(env, episode)
         mean_rewards.append(score)
-        policy.update()
+        policy.update(i_episode)
         if i_episode % 1000 == 0:
             print("\rEpisode {}/{} with mean reward {}".format(i_episode, num_episodes, np.mean(mean_rewards)), end="")
             sys.stdout.flush()
@@ -135,3 +143,76 @@ def MC(env, policy, Q_class ,num_episodes, generate_episode, stopping = None):
             if np.mean(mean_rewards) > stopping:
                 return Q_class,mean_rewards
     return Q_class,mean_rewards
+
+## TD
+
+class update_sarsa_Q(update_Q):
+    def __init__(self, n_actions, alpha, gamma):
+        super(update_sarsa_Q, self).__init__(n_actions, gamma)
+        self.alpha = alpha
+        
+    def update(self,  state, action, reward, next_state=None, next_action=None):
+        current = self.Q[state][action]
+        Qsa_next = self.Q[next_state][next_action] if next_state is not None else 0    
+        target = reward + (self.gamma * Qsa_next)               # construct TD target
+        new_value = current + (self.alpha * (target - current)) # get updated value
+        self.Q[state][action] = new_value
+        
+class update_sarsamax_Q(update_Q):
+    def __init__(self, n_actions, alpha, gamma):
+        super(update_sarsamax_Q, self).__init__(n_actions, gamma)
+        self.alpha = alpha
+        
+    def update(self,  state, action, reward, next_state=None, next_action=None):
+        current = self.Q[state][action]
+        Qsa_next = max(self.Q[next_state]) if next_state is not None else 0    
+        target = reward + (self.gamma * Qsa_next)               # construct TD target
+        new_value = current + (self.alpha * (target - current)) # get updated value
+        self.Q[state][action] = new_value
+        
+class update_expectedsarsamax_Q(update_Q):
+    def __init__(self, n_actions, alpha, gamma, eps):
+        super(update_expectedsarsamax_Q, self).__init__(n_actions, gamma)
+        self.alpha = alpha
+        self.eps = eps
+        
+    def update(self,  state, action, reward, next_state=None, next_action=None):
+        current = self.Q[state][action]         
+        policy_s = np.ones(self.n_actions) * self.eps / self.n_actions  
+        policy_s[np.argmax(self.Q[next_state])] = 1 - self.eps + (self.eps / self.n_actions) 
+        Qsa_next = np.dot(self.Q[next_state], policy_s)         
+        target = reward + (self.gamma * Qsa_next)               
+        new_value = current + (self.alpha * (target - current))  
+        self.Q[state][action] = new_value
+        
+def TD(env, policy, Q_class, num_episodes, stopping = None):
+    tmp_scores = deque(maxlen=100) 
+    means = []
+    for i_episode in range(1, num_episodes+1):  
+                                           # initialize score
+        state = env.reset()                                   # start episode
+        action = policy.get_action(Q_class.Q[state])   
+        score = 0
+        while True:
+            next_state, reward, done, info = env.step(action) # take action A, observe R, S'
+            score += reward                                   # add reward to agent's score
+            if not done:
+                next_action = policy.get_action(Q_class.Q[next_state]) # epsilon-greedy action
+                Q_class.update(state, action, reward, next_state, next_action)
+                                                                  
+                state = next_state 
+                action = next_action   
+            if done:
+                Q_class.update(state, action, reward)
+                tmp_scores.append(score)
+                break
+        if i_episode % 1000 == 0:
+            means.append(np.mean(tmp_scores))
+            print("\rEpisode {}/{} with mean reward {}".format(i_episode, num_episodes, np.mean(tmp_scores)), end="")
+            sys.stdout.flush()
+            if stopping and np.mean(tmp_scores) > stopping:
+                print(' solved in ', i_episode,'with average reward : ',np.mean(tmp_scores))
+                return means
+        policy.update(i_episode)
+
+    return means
