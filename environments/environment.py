@@ -1,4 +1,5 @@
 import numpy as np
+from library import *
 
 class environment_wrapper_base(object):
     def __init__(self):
@@ -39,7 +40,7 @@ class environment_gym(environment_wrapper_base):
         super(environment_gym).__init__()
         import gym  # open ai gym
         import pybullet_envs
-        import pybulletgym
+        #import pybulletgym
         self.gym = gym
         self.name = name
         self.env = gym.make(self.name)
@@ -105,43 +106,70 @@ class environment_unity(environment_wrapper_base):
         self.env.close()
 
 class env_wrapper:
-    def __init__(self, env):
+    def __init__(self, env, is_discretised = False):
         self.env = env
         self.state_maps = {}
         self.action_maps = {}
         self.inverse_action_maps = {}
         self.inverse_state_maps = {}
+        self.is_discretised = is_discretised
         self.create_mappings()
+ 
            
     def find_coordinates(self, space):
-        if isinstance(space, self.env.gym.spaces.tuple_space.Tuple):
+        #print(space.n)
+        
+        
+        #note will need to add other cases to handle different gym.space/action data types
+        
+        if isinstance(space, self.env.gym.spaces.tuple.Tuple):
             space_description = [np.arange(coordinate_space.n) for coordinate_space in space.spaces]
             import itertools
             r = ''
             for i in range(0,len(space_description)):
                 r+='space_description['+str(i)+'],'
             r = 'list(itertools.product(' + r[:-1] + '))'
-            coordinates = eval(r)
-        else:
-            coordinates = np.arange(space.n)
-        return coordinates
+            return eval(r)
+        elif isinstance(space, self.env.gym.spaces.discrete.Discrete):
+            return np.arange(space.n)
+        elif isinstance(space, self.env.gym.spaces.box.Box):
+            if self.is_discretised:
+                #just on observation space for now
+                self.discretised = discretise(self.env)
+                return self.discretised.get_coordinates()
     
     def create_mappings(self):
         action_coordinates = self.find_coordinates(self.env.action_space())
         state_coordinates = self.find_coordinates(self.env.observation_space())
+        
+        
+        #print(type(tuple(state_coordinates[0])))
+        #print(type(action_coordinates[0]))
+              
         for i in range(0,len(action_coordinates)):
             self.action_maps[action_coordinates[i]] = i
             self.inverse_action_maps[i] = action_coordinates[i]
             
+                
         for i in range(0,len(state_coordinates)):
+            #if len(state_coordinates[i]) > 1:
+              
             self.state_maps[state_coordinates[i]] = i
             self.inverse_state_maps[i] = state_coordinates[i] 
     
     def step(self, action):
-        return self.env.step(self.inverse_action_maps[action])
+        if self.is_discretised:
+            next_state, reward, is_done, info = self.env.step(self.inverse_action_maps[action])
+            next_state = self.state_maps[tuple(self.discretised.mapper(next_state))]
+            return next_state, reward, is_done, info
+        else:
+            return self.env.step(self.inverse_action_maps[action])
         
     def reset(self):
-        return self.state_maps[self.env.reset()]
+        if self.is_discretised:
+            return self.state_maps[tuple(self.discretised.mapper(self.env.reset()))]
+        else:
+            return self.state_maps[self.env.reset()]
         
     def render(self):
         self.env.render()
@@ -151,3 +179,49 @@ class env_wrapper:
         
     def close(self):
         self.env.close()
+        
+class discretise(object):
+    def __init__(self, env):
+        self.env = env
+        self.grid = None
+        self.lower_discrete = None
+        self.upper_discrete = None
+        self.all_coordinates = []
+        self.get_all_arangements()
+        
+    def _create_uniform_grid(self, low, high, bins):
+        self.grid = [np.linspace(low[dim], high[dim], bins[dim] + 1)[1:-1] for dim in range(len(bins))]
+
+    def _discretise(self, sample):
+        return list(int(np.digitize(s, g)) for s, g in zip(sample, self.grid)) 
+    
+    def get_discretisation(self, bins=None):
+        upper_bounds = self.env.observation_space().high
+        lower_bounds = self.env.observation_space().low
+        
+        if not bins:
+            bins = tuple([10]*len(upper_bounds))
+
+        self._create_uniform_grid(lower_bounds,upper_bounds, bins)
+        self.lower_discrete = self._discretise(lower_bounds)
+        self.upper_discrete = self._discretise(upper_bounds)
+        
+    def get_all_arangements(self):
+        #TO DO SET UP BINS CHOICE FOR DISCRETISATION
+        self.get_discretisation()
+        arangements = []
+        for i in range(0,len(self.lower_discrete)):
+            arangements.append(np.arange(self.lower_discrete[i]-1,self.upper_discrete[i])+1)
+
+        import itertools
+        listOLists = arangements
+        for coords in itertools.product(*listOLists):
+            self.all_coordinates.append(tuple(coords))
+            
+        self.all_coordinates = self.all_coordinates
+        
+    def get_coordinates(self):
+        return self.all_coordinates
+    
+    def mapper(self, observation):
+        return self._discretise(observation)
