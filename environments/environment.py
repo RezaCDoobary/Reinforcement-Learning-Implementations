@@ -107,6 +107,8 @@ class environment_unity(environment_wrapper_base):
 
 class env_wrapper:
     def __init__(self, env, is_discretised = False):
+        import gym
+        self.gym = gym
         self.env = env
         self.state_maps = {}
         self.action_maps = {}
@@ -122,7 +124,7 @@ class env_wrapper:
         
         #note will need to add other cases to handle different gym.space/action data types
         
-        if isinstance(space, self.env.gym.spaces.tuple.Tuple):
+        if isinstance(space, self.gym.spaces.tuple_space.Tuple):
             space_description = [np.arange(coordinate_space.n) for coordinate_space in space.spaces]
             import itertools
             r = ''
@@ -130,9 +132,9 @@ class env_wrapper:
                 r+='space_description['+str(i)+'],'
             r = 'list(itertools.product(' + r[:-1] + '))'
             return eval(r)
-        elif isinstance(space, self.env.gym.spaces.discrete.Discrete):
+        elif isinstance(space, self.gym.spaces.discrete.Discrete):
             return np.arange(space.n)
-        elif isinstance(space, self.env.gym.spaces.box.Box):
+        elif isinstance(space, self.gym.spaces.box.Box):
             if self.is_discretised:
                 #just on observation space for now
                 self.discretised = discretise(self.env)
@@ -200,7 +202,7 @@ class discretise(object):
         lower_bounds = self.env.observation_space().low
         
         if not bins:
-            bins = tuple([10]*len(upper_bounds))
+            bins = tuple([5]*len(upper_bounds))
 
         self._create_uniform_grid(lower_bounds,upper_bounds, bins)
         self.lower_discrete = self._discretise(lower_bounds)

@@ -63,6 +63,7 @@ def play(env, Q, n_episodes, policy, window = 100):
     moving_scores = deque(maxlen = window)
     moving_average_scores = []
     for i_epsiodes in range(0,n_episodes):
+        print('\r','Episode [{}/{}]'.format(i_epsiodes, n_episodes),end='')
         done = False
         next_state = env.reset()
         score = 0
@@ -129,14 +130,14 @@ class update_control_Q(update_Q):
             score+=rewards[i]
         return score
     
-def MC(env, policy, Q_class ,num_episodes, generate_episode, stopping = None):
+def MC(env, policy, Q_class ,num_episodes, generate_episode, stopping = None, print_every = 1000):
     mean_rewards = deque(maxlen = 100)
     for i_episode in range(1, num_episodes+1):
         episode = generate_episode(env, policy, Q_class.Q)
         score = Q_class.update(env, episode)
         mean_rewards.append(score)
         policy.update(i_episode)
-        if i_episode % 1000 == 0:
+        if i_episode % print_every == 0:
             print("\rEpisode {}/{} with mean reward {}".format(i_episode, num_episodes, np.mean(mean_rewards)), end="")
             sys.stdout.flush()
         if stopping:
@@ -185,7 +186,7 @@ class update_expectedsarsamax_Q(update_Q):
         new_value = current + (self.alpha * (target - current))  
         self.Q[state][action] = new_value
         
-def TD(env, policy, Q_class, num_episodes, stopping = None):
+def TD(env, policy, Q_class, num_episodes, stopping = None, print_every = 1000):
     tmp_scores = deque(maxlen=100) 
     means = []
     for i_episode in range(1, num_episodes+1):  
@@ -206,7 +207,7 @@ def TD(env, policy, Q_class, num_episodes, stopping = None):
                 Q_class.update(state, action, reward)
                 tmp_scores.append(score)
                 break
-        if i_episode % 1000 == 0:
+        if i_episode % print_every == 0:
             means.append(np.mean(tmp_scores))
             print("\rEpisode {}/{} with mean reward {}".format(i_episode, num_episodes, np.mean(tmp_scores)), end="")
             sys.stdout.flush()
