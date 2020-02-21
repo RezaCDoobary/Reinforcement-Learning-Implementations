@@ -139,6 +139,7 @@ class env_wrapper:
                 #just on observation space for now
                 self.discretised = discretise(self.env)
                 return self.discretised.get_coordinates()
+        return None
     
     def create_mappings(self):
         action_coordinates = self.find_coordinates(self.env.action_space())
@@ -152,12 +153,12 @@ class env_wrapper:
             self.action_maps[action_coordinates[i]] = i
             self.inverse_action_maps[i] = action_coordinates[i]
             
+        if state_coordinates:
+            for i in range(0,len(state_coordinates)):
+                #if len(state_coordinates[i]) > 1:
                 
-        for i in range(0,len(state_coordinates)):
-            #if len(state_coordinates[i]) > 1:
-              
-            self.state_maps[state_coordinates[i]] = i
-            self.inverse_state_maps[i] = state_coordinates[i] 
+                self.state_maps[state_coordinates[i]] = i
+                self.inverse_state_maps[i] = state_coordinates[i] 
     
     def step(self, action):
         if self.is_discretised:
@@ -168,10 +169,12 @@ class env_wrapper:
             return self.env.step(self.inverse_action_maps[action])
         
     def reset(self):
-        if self.is_discretised:
+        if self.is_discretised and len(self.state_maps) != 0:
             return self.state_maps[tuple(self.discretised.mapper(self.env.reset()))]
-        else:
+        elif not self.is_discretised and len(self.state_maps) != 0: 
             return self.state_maps[self.env.reset()]
+        else:
+            return self.env.reset()
         
     def render(self):
         self.env.render()
