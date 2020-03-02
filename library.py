@@ -138,7 +138,7 @@ def MC(env, policy, Q_class ,num_episodes, generate_episode, stopping = None, pr
         mean_rewards.append(score)
         policy.update(i_episode)
         if i_episode % print_every == 0:
-            print("\rEpisode {}/{} with mean reward {}".format(i_episode, num_episodes, np.mean(mean_rewards)), end="")
+            print("\rEpisode [{}/{}] with mean reward {}".format(i_episode, num_episodes, np.mean(mean_rewards)), end="")
             sys.stdout.flush()
         if stopping:
             if np.mean(mean_rewards) > stopping:
@@ -209,7 +209,7 @@ def TD(env, policy, Q_class, num_episodes, stopping = None, print_every = 1000):
                 break
         if i_episode % print_every == 0:
             means.append(np.mean(tmp_scores))
-            print("\rEpisode {}/{} with mean reward {}".format(i_episode, num_episodes, np.mean(tmp_scores)), end="")
+            print("\rEpisode [{}/{}] with mean reward {}".format(i_episode, num_episodes, np.mean(tmp_scores)), end="")
             sys.stdout.flush()
             if stopping and np.mean(tmp_scores) > stopping:
                 print(' solved in ', i_episode,'with average reward : ',np.mean(tmp_scores))

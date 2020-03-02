@@ -39,6 +39,7 @@ class environment_gym(environment_wrapper_base):
     def __init__(self,name):
         super(environment_gym).__init__()
         import gym  # open ai gym
+        #print(gym)
         import pybullet_envs
         #import pybulletgym
         self.gym = gym
@@ -153,7 +154,7 @@ class env_wrapper:
             self.action_maps[action_coordinates[i]] = i
             self.inverse_action_maps[i] = action_coordinates[i]
             
-        if state_coordinates:
+        if state_coordinates is not None:
             for i in range(0,len(state_coordinates)):
                 #if len(state_coordinates[i]) > 1:
                 
