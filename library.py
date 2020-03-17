@@ -42,13 +42,16 @@ class epsilon_greedy(policy):
         self.schedule = schedule
         
 
-    def get_action(self,Q_state):
+    def get_action(self,Q_state, else_take = None):
         eps = self.epsilon.get()
-        rv = np.random.uniform(0,1)
+        rv = np.random.random()
         if rv > eps:
             return np.argmax(Q_state)
         else:
-            return np.random.choice(np.arange(len(Q_state)))
+            if else_take is None:
+                return np.random.choice(np.arange(len(Q_state)))
+            else:
+                return np.random.choice(else_take)
     
     
     def update(self, episode_counter):
