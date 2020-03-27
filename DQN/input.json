@@ -1,0 +1,20 @@
+{
+    "ENV":"LunarLander-v2",
+    "BUFFER_SIZE" : 100000,
+    "BATCH_SIZE" : 64,        
+    "GAMMA" : 0.99,           
+    "TAU" : 1e-3,              
+    "LR" : 5e-4,            
+    "UPDATE_EVERY" : 4,
+    "HIDDEN_LAYERS" : [64,64],
+    "DROP_P" : 0.00,
+    "WITH_DDQN" : 0,
+    "WITH_DUELING" : 0,
+    "N_EPISODES" : 2000,
+    "MAX_T" : 1000,
+    "EPS_START" : 1.0,
+    "EPS_END": 0.01,
+    "EPS_DECAY" : 0.95,
+    "STOP_AT_GOAL" : 1,
+    "SOLVED" : 200.0
+}
